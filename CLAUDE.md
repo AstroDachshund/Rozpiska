@@ -71,6 +71,37 @@ npm run test             # Vitest (domain + RLS)
 npm run test:e2e         # Playwright
 ```
 
+## Engineering workflow (universal rules)
+
+### Git & branches
+
+- `main` is protected and always deployable. Never commit directly to `main`, never force-push it.
+- One short-lived branch per task: `feat/m4-plan-builder-dnd`, `fix/set-log-sync`, `chore/ci-playwright`. Branch from fresh `main`, merge within days, delete after merge. No long-lived develop branch.
+- Conventional Commits: `feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`, with milestone scope where useful (`feat(m7): offline queue flush on reconnect`). Small, atomic commits — one logical change each; commit message explains *why*, not just *what*.
+- Every change lands through a PR, even solo: PR = CI gate + review checkpoint. PR description: what/why, how tested, screenshot or clip for UI changes (client screens at 380px). Before opening a PR, Claude Code performs a self-review of the diff against this file and `/docs`.
+- Never commit: secrets, `.env*` (except `.env.example`), local Supabase state. Do commit: migrations, generated `lib/supabase/types.ts`, lockfile.
+
+### Testing policy
+
+- Test pyramid for this project: (1) Vitest unit tests for everything in `lib/domain/` — pure functions, aim high coverage here; (2) RLS integration tests for every table/policy (run against local Supabase) — these are security tests, they never get skipped; (3) Playwright E2E only for critical journeys: invite→signup, template→assignment copy, full workout logging incl. offline replay.
+- New behavior ships with its test in the same PR. Bug fixes start with a failing test reproducing the bug.
+- Before any commit run: `typecheck → lint → vitest`. Before merging a milestone: full suite including E2E. Never weaken or delete a failing test to make CI green — fix the code or explicitly discuss with Piotr.
+- Flaky test = bug. Quarantine it in the same PR that discovers it and open a follow-up task; don't retry-loop CI.
+
+### CI/CD (GitHub Actions + Vercel + Supabase)
+
+- CI on every PR: install → `tsc --noEmit` → ESLint + Prettier check → Vitest → spin up `supabase start` → run migrations from scratch (`db reset`) → RLS tests. Playwright job runs on PRs labeled `e2e` and always before a production release.
+- CI must prove migrations apply cleanly from zero — the migration chain is the schema's source of truth.
+- CD: Vercel Preview deployment per PR (against a staging Supabase project), production deploy on merge to `main`.
+- Database migration deploys are explicit, never implicit: a dedicated GitHub Action applies `supabase db push` to production **before** the app deploy that depends on it. Migrations must be backward-compatible with the currently deployed app (expand → migrate → contract pattern); destructive changes (drop/rename) require a two-step release.
+- Environments: `local` (supabase start) → `staging` (preview) → `production` (EU project). Secrets live in GitHub/Vercel env settings only; `.env.example` documents every required variable.
+- Versioning: tag production releases (`v0.x.y`) and keep a short human-readable CHANGELOG entry per release — it doubles as the update note for pilot trainers.
+
+### When things break
+
+- Production bug: branch from `main`, failing test first, minimal fix, fast-track PR. Rollback = redeploy previous Vercel build; DB rollbacks are forward-only (write a new corrective migration, never edit an applied one).
+- Never edit a migration file that has been applied to staging/production. Local-only migrations may be squashed before first push.
+
 ## Working style
 
 - Prefer small vertical slices (schema → RLS → query → UI) over horizontal layers.

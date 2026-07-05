@@ -1,0 +1,205 @@
+# Architektura techniczna — platforma trener ↔ podopieczny
+
+Wersja: 0.1 (draft do iteracji) · Zakres: MVP (Etap 1) z myślą o Etapach 2–4
+Konwencja: nazwy w kodzie i schemacie po angielsku, dokumentacja po polsku.
+
+---
+
+## 1. Założenia i wymagania niefunkcjonalne
+
+Wymagania wyprowadzone z dokumentu researchowego:
+
+- **Solo developer + Claude Code** → stack musi minimalizować liczbę ruchomych części (jeden język, jeden framework, backend "kupiony", nie pisany).
+- **Real-time**: trener widzi logi podopiecznego bez odświeżania; zmiany w planie widoczne u klienta od razu.
+- **Mobile-first dla podopiecznego, desktop-first dla trenera** — jeden codebase, dwa konteksty UX.
+- **Offline-tolerance**: logowanie serii na siłowni z kiepskim zasięgiem nie może gubić danych (to najczęstszy powód złych recenzji konkurencji: "straciłem cały wypełniony trening").
+- **Multi-tenancy**: dane trenera A niewidoczne dla trenera B; podopieczny widzi tylko swoje.
+- **RODO**: dane o treningu/samopoczuciu mogą być danymi o zdrowiu → hosting w UE, prawo do usunięcia konta, minimalizacja danych.
+- **Koszt stały bliski zera** do momentu pierwszych płacących trenerów.
+- **Ścieżka rozwoju**: PWA teraz, bez zamykania drogi do apki natywnej (Etap 4) — stąd cała logika w API/bazie, nie w kliencie.
+
+---
+
+## 2. Stack — decyzje i uzasadnienie
+
+| Warstwa | Decyzja | Uzasadnienie / odrzucone alternatywy |
+|---|---|---|
+| Framework | **Next.js 15 (App Router) + TypeScript** | Jeden projekt = frontend + API routes + SSR. Świetnie wspierany przez Claude Code i shadcn/ui (komponenty są pisane pod React Server Components). Alternatywa Vite+SPA+osobny backend odrzucona: dwa deploye, dwa repo-konteksty, więcej pracy solo. |
+| UI | **shadcn/ui + Tailwind CSS 4** | Zgodnie z założeniem projektu (Claude Design). Komponenty kopiowane do repo = pełna kontrola, brak lock-inu. |
+| Backend / baza | **Supabase (Postgres + Auth + Realtime + Storage), region EU (Frankfurt)** | Załatwia jednym produktem: auth z rolami, Row Level Security (multi-tenancy na poziomie bazy), realtime (subskrypcje na zmiany w tabelach → "real-time insights" za darmo), storage (media w Etapie 3). Free tier wystarczy na MVP i pilotaż. Alternatywy: własny backend Nest/Fastify (za dużo utrzymania solo), Firebase (NoSQL utrudnia relacyjny model planów, gorzej z RODO/EU). |
+| ORM / dostęp do danych | **Supabase JS client + typy generowane z bazy** (`supabase gen types`) | Mniej warstw niż Prisma/Drizzle; RLS wymusza bezpieczeństwo nawet przy zapytaniach z klienta. Drizzle można dodać później, jeśli zapytania się skomplikują. |
+| Stan / dane po stronie klienta | **TanStack Query** + subskrypcje Supabase Realtime | Cache, retry, optimistic updates (kluczowe dla logowania serii), invalidacja po evencie realtime. |
+| Offline | **Dexie.js (IndexedDB) jako kolejka zapisu** dla trybu treningu | Szczegóły w §7. Świadomie NIE robimy pełnego offline-first całej aplikacji — tylko krytycznej ścieżki (aktywny trening). |
+| PWA | next-pwa / Serwis Worker: precache shellu + manifest | Instalowalna na telefonie podopiecznego; push notifications (Web Push) dopiero w Etapie 2. |
+| Walidacja | **Zod** (schematy współdzielone między formularzami a API) | Jedno źródło prawdy dla typów wejściowych. |
+| Hosting frontu | **Vercel** (free/hobby na start) | Naturalny dla Next.js; alternatywnie Cloudflare Pages, jeśli zależy na EU-only edge. |
+| Monitoring | Sentry (free tier) + logi Supabase | Od pierwszego dnia — solo developer nie ma czasu na debugowanie w ciemno. |
+| Testy | Vitest (logika: progresja, 1RM, mapowanie planu) + Playwright (2–3 krytyczne ścieżki E2E) | Minimalny, ale realny zestaw. |
+
+**Estymowany koszt stały MVP: 0 zł/mies.** (free tiery) → ~25 USD/mies. po przejściu na Supabase Pro (potrzebny m.in. dla codziennych backupów i braku pauzowania projektu).
+
+---
+
+## 3. Model danych (serce systemu)
+
+### 3.1 Kluczowa decyzja: szablon vs instancja planu
+
+Największy błąd projektowy, jaki można tu popełnić, to jedna tabela "plans" współdzielona przez szablony i plany przypisane. Rozdzielamy:
+
+- **Szablon** (`plan_templates` + struktura) — własność trenera, wielokrotnego użytku, edycja nie dotyka klientów.
+- **Instancja** (`assigned_plans` + struktura) — **głęboka kopia** szablonu w momencie przypisania do podopiecznego. Trener edytuje instancję "w locie" bez wpływu na szablon i innych klientów.
+
+Kopiowanie (a nie referencja) kosztuje trochę miejsca, ale eliminuje całą klasę bugów ("zmieniłem plan Kasi i rozjechało się Tomkowi") i upraszcza wersjonowanie. Miejsce w Postgresie jest tanie.
+
+Ta sama zasada dotyczy ćwiczeń w planie: wiersz planu trzyma **referencję do ćwiczenia** (`exercise_id`) dla historii/statystyk, ale też **snapshot nazwy** — żeby zmiana nazwy ćwiczenia w banku nie przepisywała historii treningów.
+
+### 3.2 Encje
+
+```
+profiles            – 1:1 z auth.users; role: 'trainer' | 'client'
+trainer_clients     – relacja trener↔podopieczny (status: invited/active/archived)
+invites             – zaproszenia (token, e-mail, expires_at)
+
+exercises           – bank ćwiczeń trenera
+exercise_tags       – tagi (partia mięśniowa, sprzęt, wzorzec ruchowy)
+exercise_tag_links  – M:N ćwiczenie↔tag
+
+plan_templates      – szablony planów (trener)
+assigned_plans      – plany przypisane (kopia; klient, daty, status)
+plan_weeks          – tygodnie (należą do szablonu LUB instancji – patrz 3.4)
+plan_days           – dni treningowe w tygodniu (nazwa: "Push A", kolejność)
+plan_sections       – sekcje dnia: warmup / main / cooldown (kolejność)
+plan_exercises      – ćwiczenie w sekcji: exercise_id, snapshot nazwy,
+                      kolejność, notatka trenera, superset_group
+plan_sets           – zaplanowane serie: numer, reps (lub zakres "8–10"),
+                      target_weight?, target_rpe?, rest_seconds?
+
+workout_sessions    – rozpoczęty/ukończony trening klienta
+                      (assigned_plan_day_id, started_at, completed_at, notatka, samopoczucie)
+set_logs            – FAKTYCZNIE wykonana seria: plan_set_id?, exercise_id,
+                      weight, reps, rpe?, completed_at, notatka
+personal_records    – (Etap 2, ale warto mieć od razu) exercise_id, typ (max weight / e1RM), wartość, data
+```
+
+### 3.3 Zasady projektowe
+
+1. **Plan mówi "co miało być", log mówi "co było".** `plan_sets` (target) i `set_logs` (actual) to osobne tabele połączone opcjonalnym `plan_set_id`. Dzięki temu: klient może zrobić dodatkową serię (log bez planu), pominąć serię (plan bez loga), a compliance liczy się prostym porównaniem.
+2. **`set_logs` zawsze ma `exercise_id` i wartości zdenormalizowane** (nazwa, ciężar, powtórzenia) — historia i wykresy progresu (Etap 2) czytają wyłącznie z `set_logs`, niezależnie od tego, czy plan/ćwiczenie jeszcze istnieje.
+3. **Reps jako para `reps_min`/`reps_max`** (dla "8–10"), przy stałej wartości min=max. Prostsze niż parsowanie stringów, gotowe pod przyszłe programowanie procentowe.
+4. **Soft delete** (`archived_at`) dla ćwiczeń i planów — nic, do czego odwołuje się historia, nie znika fizycznie.
+5. **Kolejność przez kolumnę `position` (float lub int z przerwami)** — drag&drop w kreatorze bez przepisywania całej listy.
+6. **ID: uuid v7** (sortowalne czasowo) — ułatwia offline: klient generuje ID lokalnie, brak konfliktów przy synchronizacji.
+
+### 3.4 Szablon vs instancja — implementacja
+
+Dwie opcje; rekomendacja: **opcja A**.
+
+- **Opcja A (rekomendowana): wspólne tabele struktury** (`plan_weeks/days/sections/exercises/sets`) z parą kolumn `template_id` XOR `assigned_plan_id` (CHECK constraint: dokładnie jedna wypełniona). Jedna logika kreatora obsługuje oba konteksty — kreator to najdroższy UI w projekcie, nie chcemy go pisać dwa razy. Przypisanie planu = funkcja Postgres (`copy_template_to_assignment`) wykonująca głęboką kopię w jednej transakcji.
+- Opcja B: całkowicie osobne drzewa tabel — czystsza teoretycznie, ale duplikuje kreator i zapytania. Odrzucona.
+
+### 3.5 Multi-tenancy: Row Level Security
+
+Cała izolacja danych w RLS na poziomie Postgresa (nie w kodzie aplikacji):
+
+- Trener: pełny dostęp do wierszy, gdzie `trainer_id = auth.uid()`.
+- Podopieczny: `SELECT` na swoich `assigned_plans` (+ struktura przez join), `INSERT/UPDATE` na własnych `workout_sessions` i `set_logs`, `SELECT` na ćwiczeniach swojego trenera (potrzebny podgląd wideo/notatek).
+- Podopieczny **nie widzi**: szablonów, innych klientów, notatek trenera oznaczonych jako prywatne (`is_private` na notatkach klienta u trenera).
+
+Testy RLS jako testy integracyjne od pierwszej migracji — to fundament bezpieczeństwa, a bug tutaj = incydent RODO.
+
+---
+
+## 4. Architektura aplikacji
+
+### 4.1 Struktura (jedno repo, jedna apka Next.js)
+
+```
+/app
+  /(auth)          – login, rejestracja, akceptacja zaproszenia
+  /(trainer)       – panel trenera (desktop-first)
+    /clients, /clients/[id]
+    /exercises
+    /templates, /templates/[id]/edit   ← kreator
+    /plans/[id]/edit                   ← edycja instancji (ten sam kreator)
+  /(client)        – apka podopiecznego (mobile-first)
+    /plan          – podgląd całego planu
+    /today         – dzisiejszy trening
+    /workout/[sessionId] – tryb treningu (offline-capable)
+    /history
+/components
+  /ui              – shadcn/ui
+  /plan-builder    – kreator (współdzielony szablon/instancja)
+  /workout         – tryb treningu, timer, logger serii
+/lib
+  /supabase        – klienty (browser/server), typy generowane
+  /domain          – czysta logika: e1RM, compliance, progresja (testowana Vitest)
+  /offline         – kolejka Dexie + sync
+/supabase
+  /migrations      – SQL, wersjonowane w git
+  /tests           – testy RLS
+```
+
+Routing po roli: middleware czyta rolę z sesji i pilnuje granicy `(trainer)`/`(client)`. Jedno konto = jedna rola w MVP (trener, który sam trenuje u kogoś — edge case, odkładamy; w razie czego drugie konto).
+
+### 4.2 Przepływ danych
+
+- Odczyt: Server Components + TanStack Query na kliencie tam, gdzie dane żyją (tryb treningu, dashboard trenera).
+- Zapis: mutacje przez Supabase client (RLS chroni), operacje wieloetapowe (kopiowanie szablonu, zakończenie sesji) przez funkcje Postgres (RPC) — atomowość w jednej transakcji.
+- Realtime: subskrypcja `set_logs`/`workout_sessions` per klient w panelu trenera ("Kasia właśnie trenuje — żywy podgląd"), subskrypcja struktury planu u klienta (zmiany trenera "w locie"). Fallback: refetch on focus — realtime jest nice-to-have, nie może być single point of failure.
+
+### 4.3 Tryb treningu — najważniejszy ekran produktu
+
+Wymagania: działa przy słabym zasięgu, duże przyciski, zero utraty danych.
+
+Mechanika: start sesji tworzy `workout_session` i pobiera cały plan dnia + ostatnie logi ("ostatnio: 80 kg × 8") do stanu lokalnego. Każde odhaczenie serii: zapis natychmiast do Dexie (kolejka) → próba wysyłki do Supabase → sukces oznacza wpis jako zsynchronizowany. UI zawsze odpowiada natychmiast (optimistic). Wskaźnik "offline — dane zapisane lokalnie" zamiast blokowania.
+
+---
+
+## 5. Autentykacja, zaproszenia, cykl życia klienta
+
+- Supabase Auth: e-mail+hasło oraz magic link (podopieczni nie-techniczni). Google OAuth — nice-to-have.
+- Onboarding podopiecznego: trener dodaje klienta → rekord `invites` z tokenem → link (e-mail lub skopiowany do Messengera — realny kanał!) → rejestracja pod tokenem tworzy `profile(role=client)` + aktywuje `trainer_clients`.
+- Archiwizacja klienta: koniec współpracy → `archived` (dane zostają, dostęp klienta do planu read-only lub odcięty — decyzja produktowa, patrz §9).
+- MVP: 1 podopieczny ↔ 1 trener (constraint w bazie). Relacja M:N (klient z dwoma trenerami) to komplikacja, na którą nie ma dowodu popytu.
+
+---
+
+## 6. Web push / powiadomienia (Etap 2 — projektujemy z wyprzedzeniem)
+
+Web Push API działa w PWA na Androidzie i od iOS 16.4 na iPhonie (wymaga instalacji na ekranie głównym). Tabela `push_subscriptions` + wysyłka z funkcji Edge (cron: przypomnienie o treningu). W MVP jedynie projekt tabeli — zero implementacji.
+
+## 7. Offline — zakres świadomie ograniczony
+
+Offline-first całej aplikacji to pułapka złożoności (konflikty edycji planu itd.). Zakres offline w MVP wyłącznie:
+
+1. **Aktywny trening** (opisany w §4.3) — pełne wsparcie.
+2. Cache ostatnio otwartego planu (stale-while-revalidate) — podgląd działa w piwnicy siłowni.
+
+Kreator planów trenera: tylko online. Konflikt "trener edytował dzień, który klient właśnie trenuje": logi odnoszą się do snapshotu pobranego przy starcie sesji — sesja dokańcza się na starej wersji, kolejna pobierze nową. Zero merge'owania.
+
+## 8. Bezpieczeństwo i RODO
+
+- Region danych: EU (Supabase Frankfurt). Vercel: funkcje w regionie fra1.
+- Dane minimalne: e-mail, imię, dane treningowe. Bez PESEL, bez danych medycznych jako pól strukturalnych (notatka wolnotekstowa "boli kolano" i tak może być daną zdrowotną → traktujemy całość jak dane wrażliwe: TLS, RLS, backupy szyfrowane).
+- Prawo do usunięcia: funkcja "usuń konto" od MVP (kaskadowe usunięcie / anonimizacja logów, których trener potrzebuje do statystyk — do decyzji z prawnikiem przy komercjalizacji).
+- Role service_role key wyłącznie po stronie serwera (API routes/Edge Functions), nigdy w kliencie.
+- Rejestr czynności przetwarzania + polityka prywatności — przed wpuszczeniem pierwszego obcego trenera (nie przed pilotażem z własnym trenerem).
+
+## 9. Dziennik decyzji (rozstrzygnięte 07.2026)
+
+1. **Stack**: Next.js + Supabase (EU) — ZATWIERDZONE.
+2. **Szablon → instancja jako głęboka kopia** — ZATWIERDZONE.
+3. **Offline ograniczony do aktywnego treningu** — ZATWIERDZONE.
+4. **Archiwizowany klient**: zachowuje dostęp **read-only** do swojej historii i planów (RLS: SELECT dozwolony przy statusie `archived`, INSERT/UPDATE na sesjach i logach zablokowany).
+5. **Jednostki**: wyłącznie **kg** w MVP. Pole `unit_preference` w `profiles` dodane od razu (default `kg`), UI przełącznika brak.
+6. **Magic link** jako domyślna metoda logowania podopiecznego (hasło jako fallback). Do obserwacji na pilotażu.
+7. **Superset**: kolumna `superset_group` w schemacie od pierwszej migracji; UI grupowania w kreatorze — Etap 2. (Trener może tymczasowo oznaczyć superset w notatce do ćwiczenia.)
+8. **Nazwa robocza: „Rozpiska"** (do weryfikacji domeny, Instagrama i znaku towarowego UPRP/EUIPO przed deployem pilotażu). Repo, manifest PWA i konfiguracja dev jadą pod tą nazwą; zmiana przed publicznym startem to koszt ~1 h (rename + redirect URLs).
+
+## 10. Workflow z Claude Code
+
+- **CLAUDE.md w repo** z: opisem domeny (słowniczek: szablon vs instancja, plan_set vs set_log), konwencjami (RLS-first, uuid v7, position float), komendami (test, migracje, gen types).
+- Migracje wyłącznie przez pliki SQL w `/supabase/migrations` (nigdy ręcznie w dashboardzie) — Claude Code widzi pełną historię schematu.
+- Po każdej migracji: `supabase gen types typescript` → typy w repo → Claude Code zawsze pracuje na aktualnym schemacie.
+- Kolejność budowy MVP (sugerowana): ①migracje+RLS+testy RLS → ②auth+zaproszenia → ③bank ćwiczeń → ④kreator szablonów → ⑤przypisanie (funkcja kopiująca) → ⑥widok planu klienta → ⑦tryb treningu+offline → ⑧widok klienta u trenera+realtime.
+- Osobno: dokument **architektura wizualna** przed punktem ④ — kreator i tryb treningu to 80% wartości UI.

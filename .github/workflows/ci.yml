@@ -44,11 +44,16 @@ jobs:
         run: supabase db reset
 
       - name: Export Supabase env for tests
+        # `supabase status -o env` emituje wartości w cudzysłowach (KEY="value").
+        # Dopisane wprost do $GITHUB_ENV cudzysłowy stałyby się częścią wartości
+        # (process.env.SUPABASE_URL = '"http://..."' → "Invalid supabaseUrl").
+        # Lokalnie dotenv zdejmuje cudzysłowy, w CI musimy zrobić to sami (sed).
         run: |
           supabase status -o env \
             --override-name api.url=SUPABASE_URL \
             --override-name auth.anon_key=SUPABASE_ANON_KEY \
             --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            | sed -E 's/^([A-Za-z_][A-Za-z0-9_]*)="(.*)"$/\1=\2/' \
             >> "$GITHUB_ENV"
 
       - name: RLS integration tests

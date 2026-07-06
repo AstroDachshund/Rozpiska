@@ -5,3 +5,5 @@ lib/supabase/types.ts
 supabase/migrations
 docs
 CLAUDE.md
+# GitHub-managed config (generated via UI) — nie formatujemy
+.github/dependabot.yml

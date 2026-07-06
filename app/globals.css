@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+/* Design tokens — Rozpiska „Stal i magnezja" (docs/architektura-wizualna.md §3).
+   NIE używamy domyślnej palety shadcn. Jasny = default trenera, ciemny = default klienta. */
+
+:root {
+  --background: #fafbfc;
+  --card: #ffffff;
+  --surface-raised: #f2f4f6;
+  --border: #e3e6ea;
+  --muted-foreground: #5c6470;
+  --foreground: #16181b;
+
+  --primary: #2353d9;
+  --success: #2e9e5b;
+  --destructive: #d23b33;
+  --warning: #e8930c;
+  --gold: #f0b429;
+
+  --plate-25: #d23b33;
+  --plate-20: #2353d9;
+  --plate-15: #e8b21a;
+  --plate-10: #2e9e5b;
+  --plate-5: #e9edf1;
+
+  --radius: 8px;
+}
+
+.dark {
+  --background: #101214;
+  --card: #17191c;
+  --surface-raised: #1e2126;
+  --border: #26292e;
+  --muted-foreground: #8a919b;
+  --foreground: #edeff2;
+
+  --primary: #3b6af0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-card: var(--card);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-success: var(--success);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-gold: var(--gold);
+  --color-plate-25: var(--plate-25);
+  --color-plate-20: var(--plate-20);
+  --color-plate-15: var(--plate-15);
+  --color-plate-10: var(--plate-10);
+  --color-plate-5: var(--plate-5);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

@@ -1,0 +1,7 @@
+.next
+node_modules
+coverage
+lib/supabase/types.ts
+supabase/migrations
+docs
+CLAUDE.md

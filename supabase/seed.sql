@@ -1,0 +1,10 @@
+-- Seed lokalny (uruchamiany przez `supabase db reset`).
+--
+-- Uwaga: prawie wszystkie dane w Rozpisce są tenantowe i wymagają istniejących
+-- kont auth.users (trener/klient), których nie tworzymy czystym SQL-em.
+-- Realistyczny seed (polski content: „Przysiad ze sztangą", plan „Push A") wraz
+-- z tworzeniem userów przez Admin API pojawi się jako skrypt seedujący w M2/M3,
+-- gdy istnieje flow rejestracji.
+--
+-- Testy RLS seedują własnych użytkowników przez service_role (patrz supabase/tests/helpers.ts),
+-- więc nie zależą od tego pliku.

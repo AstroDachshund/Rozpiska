@@ -43,6 +43,21 @@ Middleware czyta rolę z sesji (`profiles.role`) i pilnuje granicy `(trainer)`/`
 - **Kolejność (plan §2)**: S2.1 (auth-foundation) → S2.2 (invites) → S2.3 (role-middleware). Każda = własny branch + PR (rytm planu „1 sesja = 1 zadanie = 1 branch = 1 PR").
 - Po każdej migracji (`accept_invite`, ew. schemat pod middleware): `supabase gen types typescript` + commit typów.
 
+## 6a. S2.2 — rozstrzygnięcia dopięte przy starcie sesji (2026-07-07)
+
+Dopełnienie §1–§3 o decyzje, których nie dało się rozstrzygnąć przed S2.2. Kanon flow: **cookie + magic link** (zatwierdzone przez Piotra).
+
+- **Przetrwanie tokenu przez rejestrację (kluczowe)**: nowy klient nie ma konta, więc token zaproszenia musi przeżyć utworzenie konta. Threading `next`/`{{ .RedirectTo }}` jest odłożony do S2.3 (§5), więc S2.2 **nie** opiera się na nim. Zamiast tego:
+  1. `/invite/[token]` (server component) waliduje token przez `preview_invite(token)` i ustawia **httpOnly cookie `invite_token`**.
+  2. Akcja rejestracji woła `signInWithOtp({ email: <email z zaproszenia, zablokowany>, options: { shouldCreateUser: true, emailRedirectTo: <origin>/auth/confirm } })`. (S2.1 `signInWithOtpAction` ma `shouldCreateUser:false` — zaproszenia potrzebują własnej akcji z `true`.)
+  3. Magic link → `/auth/confirm` → `verifyOtp` ustawia sesję → **jeśli cookie `invite_token` obecne**: `accept_invite(token)`, wyczyść cookie, redirect `/today`. Bez cookie — zachowanie z S2.1 (login). Sprzężenie invite↔confirm jest bramkowane obecnością cookie.
+  - Zalety: zgodne z „magic link jako domyślne", bez hasła, token nigdy nie trafia do URL-a w mailu, niezależne od threadingu z S2.3.
+- **Schemat funkcji (reconcile §2)**: `accept_invite` musi być wołalne przez klienta, więc nie może leżeć w nieeksponowanym `private` (tam są helpery RLS, których NIE eksponujemy). Tworzymy **dedykowany, eksponowany** schemat `app` (dodany do `config.toml [api].schemas`), `grant execute` wąsko: `accept_invite` → tylko `authenticated`; `preview_invite` → `anon` (odczyt przed logowaniem). Ochrona i tak jest wewnątrz funkcji (walidacja tokenu, `auth.uid()`, `auth.jwt() email`). To honoruje „nie w `public`" z §2, pozostając wołalnym.
+- **`preview_invite(token)`** (`SECURITY DEFINER`, schemat `app`, grant `anon`): zwraca e-mail zaproszenia + flagę ważności (`valid` = istnieje ∧ `expires_at > now()` ∧ `accepted_at is null`) do wyświetlenia zablokowanego e-maila i komunikatu o zużytym/przeterminowanym linku. Tokeny to sekrety — brak dodatkowej ochrony przed enumeracją poza losowością tokenu.
+- **Tworzenie zaproszenia**: **Server Action** wstawiający do `invites` (RLS z M1 już pozwala trenerowi: `invites_trainer_all`). Token: `crypto.randomUUID()`; `expires_at = now() + 7 dni`. Bez nowego RPC do tworzenia. UI trenera zwraca link `<origin>/invite/<token>` do skopiowania.
+- **Po aktywacji**: redirect na `/today` (dom klienta wg `resolveHomePath('client')`).
+- **Testy `accept_invite`** (§2, ten sam PR): happy / zużyty / przeterminowany / cudzy e-mail / nieistniejący — jako role API (nie superuser, lekcja M1 §9.12).
+
 ## 6. Poza zakresem M2
 
 Google OAuth (nice-to-have), publiczna rejestracja trenera, trigger `handle_new_user`, relacja M:N klient↔trener, „usuń konto"/RODO (przed pilotażem, nie w M2).

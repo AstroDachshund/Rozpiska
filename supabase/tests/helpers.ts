@@ -169,3 +169,44 @@ export async function cleanupUsers(): Promise<void> {
     await admin.auth.admin.deleteUser(id);
   }
 }
+
+/** Tworzy użytkownika auth + zalogowanego klienta BEZ profilu (profil tworzy accept_invite). */
+export async function createUnprofiledUser(email: string): Promise<TestUser> {
+  const password = 'test-password-123456';
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (error || !data.user) throw error ?? new Error('createUnprofiledUser: brak usera');
+  createdUserIds.push(data.user.id);
+
+  const client = createClient(url, anonKey, noPersist);
+  const { error: signInError } = await client.auth.signInWithPassword({ email, password });
+  if (signInError) throw signInError;
+
+  return { userId: data.user.id, email, client };
+}
+
+/** Wstawia wiersz zaproszenia przez service_role. Domyślnie ważny 7 dni, niezużyty. */
+export async function createInvite(
+  trainerId: string,
+  email: string,
+  opts: { expiresInMs?: number; accepted?: boolean } = {}
+): Promise<{ id: string; token: string }> {
+  const token = randomUUID();
+  const expiresAt = new Date(Date.now() + (opts.expiresInMs ?? 7 * 24 * 60 * 60 * 1000));
+  const { data, error } = await admin
+    .from('invites')
+    .insert({
+      trainer_id: trainerId,
+      email,
+      token,
+      expires_at: expiresAt.toISOString(),
+      accepted_at: opts.accepted ? new Date().toISOString() : null,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return { id: (data as { id: string }).id, token };
+}

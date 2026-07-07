@@ -12,7 +12,8 @@ describe('safeRedirectPath', () => {
     expect(safeRedirectPath(null)).toBeNull();
     expect(safeRedirectPath('')).toBeNull();
   });
-  it('rejects protocol-relative //evil.com', () => expect(safeRedirectPath('//evil.com')).toBeNull());
+  it('rejects protocol-relative //evil.com', () =>
+    expect(safeRedirectPath('//evil.com')).toBeNull());
   it('rejects absolute URLs', () => expect(safeRedirectPath('http://evil.com')).toBeNull());
   it('rejects backslash tricks', () => expect(safeRedirectPath('/\\evil.com')).toBeNull());
   it('rejects paths not starting with /', () => expect(safeRedirectPath('plan')).toBeNull());

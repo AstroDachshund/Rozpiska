@@ -9,9 +9,7 @@ export default async function TodayPage() {
         <h1 className="font-display text-2xl font-semibold">Dziś</h1>
         <SignOutButton />
       </div>
-      <p className="mt-2 text-muted-foreground">
-        Cześć, {ctx?.fullName ?? '—'}.
-      </p>
+      <p className="mt-2 text-muted-foreground">Cześć, {ctx?.fullName ?? '—'}.</p>
     </main>
   );
 }

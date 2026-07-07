@@ -23,8 +23,18 @@ const admin = createClient(url, serviceKey, {
 });
 
 const users = [
-  { email: 'trener@rozpiska.local', password: 'trener-123456', role: 'trainer', fullName: 'Michał Trener' },
-  { email: 'klient@rozpiska.local', password: 'klient-123456', role: 'client', fullName: 'Kasia Podopieczna' },
+  {
+    email: 'trener@rozpiska.local',
+    password: 'trener-123456',
+    role: 'trainer',
+    fullName: 'Michał Trener',
+  },
+  {
+    email: 'klient@rozpiska.local',
+    password: 'klient-123456',
+    role: 'client',
+    fullName: 'Kasia Podopieczna',
+  },
 ];
 
 async function findUserByEmail(email) {
@@ -65,4 +75,6 @@ const { error: linkErr } = await admin
   );
 if (linkErr) throw linkErr;
 
-console.log('✓ Seed gotowy: trener@rozpiska.local / trener-123456, klient@rozpiska.local / klient-123456');
+console.log(
+  '✓ Seed gotowy: trener@rozpiska.local / trener-123456, klient@rozpiska.local / klient-123456'
+);

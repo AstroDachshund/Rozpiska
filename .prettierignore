@@ -7,3 +7,7 @@ docs
 CLAUDE.md
 # GitHub-managed config (generated via UI) — nie formatujemy
 .github/dependabot.yml
+
+# Lokalne, ignorowane przez git (nie istnieją w CI) — nie formatujemy
+.superpowers
+supabase/.temp

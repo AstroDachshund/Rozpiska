@@ -1,0 +1,7 @@
+<!-- supabase/templates/magic_link.html -->
+<h2>Zaloguj się do Rozpiski</h2>
+<p>Kliknij, aby się zalogować:</p>
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink">Zaloguj się</a>
+</p>
+<p>Jeśli to nie Ty prosiłeś o logowanie, zignoruj tę wiadomość.</p>

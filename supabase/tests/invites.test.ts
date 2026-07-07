@@ -114,3 +114,29 @@ describe('accept_invite — guard roli', () => {
     expect(profile?.role).toBe('trainer');
   });
 });
+
+describe('invites — tylko trener tworzy', () => {
+  it('odmawia klientowi tworzącemu zaproszenie (RLS with check, nawet dla trainer_id = własne uid)', async () => {
+    const client = await createUser('client', 'Klient RLS');
+
+    const { error } = await client.client.from('invites').insert({
+      trainer_id: client.userId,
+      email: emailFor(),
+      token: randomUUID(),
+      expires_at: new Date(Date.now() + 7 * 864e5).toISOString(),
+    });
+    expect(error).not.toBeNull();
+  });
+
+  it('pozwala trenerowi utworzyć zaproszenie dla siebie', async () => {
+    const trainer = await createUser('trainer', 'Trener RLS');
+
+    const { error } = await trainer.client.from('invites').insert({
+      trainer_id: trainer.userId,
+      email: emailFor(),
+      token: randomUUID(),
+      expires_at: new Date(Date.now() + 7 * 864e5).toISOString(),
+    });
+    expect(error).toBeNull();
+  });
+});

@@ -2,6 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { cookies, headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { getSessionContext } from '@/lib/auth/session';
 import { inviteCreateSchema } from '@/lib/invites/schemas';
 import { INVITE_COOKIE, inviteCookieOptions } from '@/lib/invites/cookie';
 
@@ -16,15 +17,14 @@ export async function createInviteAction(
   const parsed = inviteCreateSchema.safeParse({ email: formData.get('email') });
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: 'Musisz być zalogowany, aby zapraszać podopiecznych.' };
+  const ctx = await getSessionContext();
+  if (!ctx) return { error: 'Musisz być zalogowany, aby zapraszać podopiecznych.' };
+  if (ctx.role !== 'trainer') return { error: 'Tylko trener może zapraszać podopiecznych.' };
 
+  const supabase = await createClient();
   const token = randomUUID();
   const { error } = await supabase.from('invites').insert({
-    trainer_id: user.id,
+    trainer_id: ctx.userId,
     email: parsed.data.email,
     token,
     expires_at: new Date(Date.now() + INVITE_TTL_MS).toISOString(),

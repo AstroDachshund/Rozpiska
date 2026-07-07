@@ -12,6 +12,7 @@ Read these before non-trivial work — they contain all decisions and rationale:
 - `docs/design-system.md` — normative token→Tailwind 4 mapping and specs for custom components (SetRow, PlateBar, …); UI work starts here, never from default shadcn styles
 - `docs/plan-claude-code.md` — session-by-session build plan for M2–M8 (1 session = 1 branch = 1 PR) incl. sync points with the design track
 - `docs/plan-claude-design.md` — design track: deliverables D1–D5, prototypes in `docs/prototypes/`, design QA gates
+- `docs/brand-i-copy-marketingowy.md` — brand, positioning, landing/e-mail copy; for rollout AFTER MVP (pilot launch). Copy must never promise features outside Etap 1 (§6 honesty rules)
 
 If a task conflicts with these docs, stop and ask instead of improvising. If we make a new architectural decision in a session, append it to the decision log in `docs/architektura-techniczna.md` §9.
 

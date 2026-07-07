@@ -9,6 +9,9 @@ Read these before non-trivial work — they contain all decisions and rationale:
 - `docs/architektura-techniczna.md` — stack, data model, RLS, offline strategy, decision log (§9)
 - `docs/architektura-wizualna.md` — design tokens, two UX contexts, key screen states
 - `docs/research-i-mvp-platforma-trenerska.md` — MVP scope; anything not in Etap 1 is OUT of scope unless Piotr says otherwise
+- `docs/design-system.md` — normative token→Tailwind 4 mapping and specs for custom components (SetRow, PlateBar, …); UI work starts here, never from default shadcn styles
+- `docs/plan-claude-code.md` — session-by-session build plan for M2–M8 (1 session = 1 branch = 1 PR) incl. sync points with the design track
+- `docs/plan-claude-design.md` — design track: deliverables D1–D5, prototypes in `docs/prototypes/`, design QA gates
 
 If a task conflicts with these docs, stop and ask instead of improvising. If we make a new architectural decision in a session, append it to the decision log in `docs/architektura-techniczna.md` §9.
 

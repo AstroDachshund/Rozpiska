@@ -1,5 +1,6 @@
 import { getSessionContext } from '@/lib/auth/session';
 import { SignOutButton } from '@/components/sign-out-button';
+import { InviteClientForm } from '@/components/invite-client-form';
 
 export default async function DashboardPage() {
   const ctx = await getSessionContext();
@@ -12,6 +13,7 @@ export default async function DashboardPage() {
       <p className="mt-2 text-muted-foreground">
         Zalogowano jako {ctx?.fullName ?? '—'} ({ctx?.role ?? '—'}).
       </p>
+      <InviteClientForm />
     </main>
   );
 }

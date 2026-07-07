@@ -50,8 +50,13 @@ begin
   if v_invite.expires_at <= now() then
     raise exception 'invite expired' using errcode = 'P0001';
   end if;
-  if lower(v_invite.email) <> v_email then
+  if lower(v_invite.email) is distinct from v_email then
     raise exception 'invite email mismatch' using errcode = 'P0001';
+  end if;
+
+  -- Jedna rola na konto: trener nigdy nie może stać się klientem (model danych).
+  if exists (select 1 from public.profiles where id = v_uid and role <> 'client') then
+    raise exception 'account already registered with a non-client role' using errcode = 'P0001';
   end if;
 
   insert into public.profiles (id, role, full_name)
@@ -60,7 +65,8 @@ begin
 
   insert into public.trainer_clients (trainer_id, client_id, status)
   values (v_invite.trainer_id, v_uid, 'active')
-  on conflict (client_id) do update set status = 'active', updated_at = now();
+  on conflict (client_id) do update
+    set trainer_id = excluded.trainer_id, status = 'active', updated_at = now();
 
   update public.invites set accepted_at = now() where id = v_invite.id;
 end;

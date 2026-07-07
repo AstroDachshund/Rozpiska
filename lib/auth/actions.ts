@@ -40,9 +40,11 @@ export async function signInWithOtpAction(
   const parsed = magicLinkSchema.safeParse({ email: formData.get('email') });
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
 
+  // S2.1: magic-link `next` deep-linking jest odłożone do S2.3. Nie ma jeszcze producenta
+  // `next` (middleware roli powstaje w S2.3), a wartość i tak nie przetrwałaby rundy przez
+  // e-mail bez threadingu `.RedirectTo` w szablonie. Link ląduje na stronie roli.
   const origin = (await headers()).get('origin') ?? 'http://127.0.0.1:3000';
-  const next = safeRedirectPath(formData.get('next') as string | null);
-  const redirectTo = `${origin}/auth/confirm${next ? `?next=${encodeURIComponent(next)}` : ''}`;
+  const redirectTo = `${origin}/auth/confirm`;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({

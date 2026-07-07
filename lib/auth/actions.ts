@@ -43,6 +43,11 @@ export async function signInWithOtpAction(
   // S2.1: magic-link `next` deep-linking jest odłożone do S2.3. Nie ma jeszcze producenta
   // `next` (middleware roli powstaje w S2.3), a wartość i tak nie przetrwałaby rundy przez
   // e-mail bez threadingu `.RedirectTo` w szablonie. Link ląduje na stronie roli.
+  //
+  // Uwaga: `emailRedirectTo` NIE kształtuje linka w mailu — szablon (magic_link.html) buduje
+  // adres z `{{ .SiteURL }}`. Ta wartość służy tylko walidacji przez allow-listę redirectów
+  // Supabase (musi być dozwolonym URL-em). W S2.3 posłuży też do przeniesienia `next` przez
+  // `{{ .RedirectTo }}`. `origin` z nagłówka jest bezpieczny — Server Actions wymuszają same-origin.
   const origin = (await headers()).get('origin') ?? 'http://127.0.0.1:3000';
   const redirectTo = `${origin}/auth/confirm`;
 

@@ -41,4 +41,8 @@ describe('resolveRouteAction', () => {
     expect(resolveRouteAction({ pathname: '/dashboard', isAuthed: true, role: 'trainer' })).toEqual({ kind: 'pass' });
     expect(resolveRouteAction({ pathname: '/today', isAuthed: true, role: 'client' })).toEqual({ kind: 'pass' });
   });
+  it('redirects an authenticated user with no known role to /login', () => {
+    expect(resolveRouteAction({ pathname: '/dashboard', isAuthed: true, role: null })).toEqual({ kind: 'redirect', to: '/login' });
+    expect(resolveRouteAction({ pathname: '/today', isAuthed: true, role: null })).toEqual({ kind: 'redirect', to: '/login' });
+  });
 });

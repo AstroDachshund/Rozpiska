@@ -38,6 +38,7 @@ export function resolveRouteAction({
   const req = requiredRole(pathname);
   if (req === null) return { kind: 'pass' }; // publiczne
   if (!isAuthed) return { kind: 'redirect', to: `/login?next=${encodeURIComponent(pathname)}` };
-  if (role !== req) return { kind: 'redirect', to: resolveHomePath(role ?? 'client') };
+  if (role === null) return { kind: 'redirect', to: '/login' }; // zalogowany bez profilu/roli — niekompletna rejestracja
+  if (role !== req) return { kind: 'redirect', to: resolveHomePath(role) };
   return { kind: 'pass' };
 }

@@ -1,8 +1,9 @@
 'use server';
 import { randomUUID } from 'node:crypto';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { inviteCreateSchema } from '@/lib/invites/schemas';
+import { INVITE_COOKIE, inviteCookieOptions } from '@/lib/invites/cookie';
 
 export type InviteActionState = { error?: string; link?: string };
 
@@ -32,4 +33,40 @@ export async function createInviteAction(
 
   const origin = (await headers()).get('origin') ?? 'http://127.0.0.1:3000';
   return { link: `${origin}/invite/${token}` };
+}
+
+export type InviteMagicState = { error?: string; sentTo?: string };
+
+export async function sendInviteMagicLinkAction(
+  _prev: InviteMagicState,
+  formData: FormData
+): Promise<InviteMagicState> {
+  const token = formData.get('token');
+  if (typeof token !== 'string' || token.length === 0) {
+    return { error: 'Nieprawidłowy link zaproszenia.' };
+  }
+
+  const supabase = await createClient();
+
+  // E-mail bierzemy z serwera (preview_invite), NIE z formularza — pole jest tylko do
+  // wyświetlenia; nawet podmienione, użyjemy adresu z zaproszenia (email-lock).
+  const { data: preview } = await supabase
+    .schema('app')
+    .rpc('preview_invite', { p_token: token })
+    .maybeSingle();
+  if (!preview || !preview.valid) {
+    return { error: 'Ten link zaproszenia jest nieprawidłowy lub wygasł.' };
+  }
+
+  // Token musi przeżyć rundę przez e-mail → httpOnly cookie odczytane potem w /auth/confirm.
+  (await cookies()).set(INVITE_COOKIE, token, inviteCookieOptions);
+
+  const origin = (await headers()).get('origin') ?? 'http://127.0.0.1:3000';
+  const { error } = await supabase.auth.signInWithOtp({
+    email: preview.email,
+    options: { shouldCreateUser: true, emailRedirectTo: `${origin}/auth/confirm` },
+  });
+  if (error) return { error: 'Nie udało się wysłać linku. Spróbuj ponownie za chwilę.' };
+
+  return { sentTo: preview.email };
 }

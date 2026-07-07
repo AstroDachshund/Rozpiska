@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
-    "db:types": "supabase gen types typescript --local > lib/supabase/types.ts"
+    "db:types": "supabase gen types typescript --local > lib/supabase/types.ts",
+    "db:seed:users": "node supabase/seed/dev-users.mjs"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.11",

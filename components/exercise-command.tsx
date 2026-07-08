@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { TagChip } from '@/components/tag-chip';
-import { matchesTagFilter } from '@/lib/domain/exercise-filter';
+import { matchesTagFilter, normalizeForSearch } from '@/lib/domain/exercise-filter';
 import type { ExerciseListItem, TagRow } from '@/lib/exercises/queries';
 import type { TagCategory } from '@/lib/exercises/schemas';
 
@@ -31,17 +31,6 @@ export type ExerciseCommandProps = {
 };
 
 const CATEGORY_ORDER: TagCategory[] = ['muscle_group', 'equipment', 'movement_pattern'];
-
-// cmdk's default filter does a plain substring match, which does not fold
-// Polish diacritics (e.g. "wioslowanie" would not match "Wiosłowanie hantlem").
-// Normalize both sides before comparing so Polish users typing without
-// diacritics still get results.
-function normalizeForSearch(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
-}
 
 export function ExerciseCommand({
   open,

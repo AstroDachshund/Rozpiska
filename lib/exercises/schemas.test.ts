@@ -33,6 +33,29 @@ describe('exerciseInputSchema', () => {
   it('rejects non-uuid tag ids', () => {
     expect(exerciseInputSchema.safeParse({ name: 'X', tag_ids: ['nope'] }).success).toBe(false);
   });
+  it('accepts www. and m. youtube hosts', () => {
+    expect(
+      exerciseInputSchema.safeParse({
+        name: 'X',
+        youtube_url: 'https://www.youtube.com/watch?v=abc',
+      }).success
+    ).toBe(true);
+    expect(
+      exerciseInputSchema.safeParse({ name: 'X', youtube_url: 'https://m.youtube.com/watch?v=abc' })
+        .success
+    ).toBe(true);
+  });
+  it('rejects a spoofed youtube host', () => {
+    expect(
+      exerciseInputSchema.safeParse({ name: 'X', youtube_url: 'https://youtube.com.evil.com/x' })
+        .success
+    ).toBe(false);
+  });
+  it('rejects non-http(s) protocols on a youtube host', () => {
+    expect(
+      exerciseInputSchema.safeParse({ name: 'X', youtube_url: 'ftp://youtube.com/x' }).success
+    ).toBe(false);
+  });
 });
 
 describe('tagInputSchema', () => {

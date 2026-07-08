@@ -21,7 +21,9 @@ const youtubeUrl = z
     (v) => {
       if (v === undefined) return true;
       try {
-        const host = new URL(v).hostname.replace(/^www\.|^m\./, '');
+        const u = new URL(v);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+        const host = u.hostname.replace(/^www\.|^m\./, '');
         return host === 'youtube.com' || host === 'youtu.be';
       } catch {
         return false;
@@ -34,7 +36,7 @@ export const exerciseInputSchema = z.object({
   name: z.string().trim().min(1, 'Podaj nazwę ćwiczenia.').max(120, 'Nazwa jest za długa.'),
   technique_note: optionalText(2000, 'Notatka jest za długa.'),
   youtube_url: youtubeUrl,
-  tag_ids: z.array(z.string().uuid('Nieprawidłowy tag.')).default([]),
+  tag_ids: z.array(z.string().uuid('Nieprawidłowy tag.')).default(() => []),
 });
 export type ExerciseInput = z.infer<typeof exerciseInputSchema>;
 

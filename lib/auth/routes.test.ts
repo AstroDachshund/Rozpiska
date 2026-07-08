@@ -6,6 +6,11 @@ describe('requiredRole', () => {
     expect(requiredRole('/dashboard')).toBe('trainer');
     expect(requiredRole('/dashboard/anything')).toBe('trainer');
   });
+  it('maps /exercises (and subpaths) to trainer', () => {
+    expect(requiredRole('/exercises')).toBe('trainer');
+    expect(requiredRole('/exercises/new')).toBe('trainer');
+    expect(requiredRole('/exercises/abc/edit')).toBe('trainer');
+  });
   it('maps client routes', () => {
     expect(requiredRole('/today')).toBe('client');
     expect(requiredRole('/today/x')).toBe('client');

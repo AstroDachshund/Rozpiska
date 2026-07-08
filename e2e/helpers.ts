@@ -12,10 +12,18 @@ export const admin: SupabaseClient = createClient(url, serviceKey, {
 
 const createdUserIds: string[] = [];
 
-export async function createTrainer(): Promise<{ userId: string; email: string; password: string }> {
+export async function createTrainer(): Promise<{
+  userId: string;
+  email: string;
+  password: string;
+}> {
   const email = `trainer-${randomUUID()}@e2e.rozpiska.local`;
   const password = 'e2e-password-123456';
-  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
   if (error || !data.user) throw error ?? new Error('createTrainer: brak usera');
   createdUserIds.push(data.user.id);
   const { error: pErr } = await admin

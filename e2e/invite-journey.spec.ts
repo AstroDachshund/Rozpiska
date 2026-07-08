@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { createTrainer, freshClientEmail, createInvite, confirmUrlFor, trackUserByEmail, cleanup } from './helpers';
+import {
+  createTrainer,
+  freshClientEmail,
+  createInvite,
+  confirmUrlFor,
+  trackUserByEmail,
+  cleanup,
+} from './helpers';
 
 test.afterAll(async () => {
   await cleanup();
@@ -31,7 +38,10 @@ test('zaproszenie → rejestracja → klient ląduje w kontekście (client)', as
   await expect(page.locator('.dark')).toBeVisible();
 });
 
-test('granice grup: klient nie wejdzie do (trainer), trener nie wejdzie do (client)', async ({ page, context }) => {
+test('granice grup: klient nie wejdzie do (trainer), trener nie wejdzie do (client)', async ({
+  page,
+  context,
+}) => {
   // Klient: przez pełny flow zaproszenia (jak wyżej), potem próbuje /dashboard.
   const trainer = await createTrainer();
   const email = freshClientEmail();

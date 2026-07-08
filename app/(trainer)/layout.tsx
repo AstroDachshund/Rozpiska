@@ -1,4 +1,18 @@
 // Kontekst trenera: desktop-first, motyw jasny (default). Bez klasy `dark`.
-export default function TrainerLayout({ children }: { children: React.ReactNode }) {
-  return <div data-context="trainer">{children}</div>;
+import { TrainerCommandMenu } from '@/components/trainer-command-menu';
+import { listExercises, listTags } from '@/lib/exercises/queries';
+
+export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
+  const [exercises, archivedExercises, tags] = await Promise.all([
+    listExercises(false),
+    listExercises(true),
+    listTags(),
+  ]);
+
+  return (
+    <div data-context="trainer">
+      {children}
+      <TrainerCommandMenu exercises={exercises} archivedExercises={archivedExercises} tags={tags} />
+    </div>
+  );
 }

@@ -63,13 +63,21 @@ export async function updateExerciseAction(
   if (!parsed.success) return { error: parsed.error.issues[0]!.message };
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Musisz być zalogowany.' };
+
   const { name, technique_note, youtube_url, tag_ids } = parsed.data;
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('exercises')
     .update({ name, technique_note: technique_note ?? null, youtube_url: youtube_url ?? null })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
   if (error) return { error: 'Nie udało się zapisać zmian.' };
+  if (!updated) return { error: 'Nie znaleziono ćwiczenia.' };
 
   // Rekoncyliacja linków: policz różnicę względem obecnych.
   const { data: existing } = await supabase
@@ -82,12 +90,18 @@ export async function updateExerciseAction(
   const toAdd = [...next].filter((t) => !current.has(t));
 
   if (toRemove.length > 0) {
-    await supabase.from('exercise_tag_links').delete().eq('exercise_id', id).in('tag_id', toRemove);
+    const { error: delErr } = await supabase
+      .from('exercise_tag_links')
+      .delete()
+      .eq('exercise_id', id)
+      .in('tag_id', toRemove);
+    if (delErr) return { error: 'Nie udało się zaktualizować tagów.' };
   }
   if (toAdd.length > 0) {
-    await supabase
+    const { error: insErr } = await supabase
       .from('exercise_tag_links')
       .insert(toAdd.map((tag_id) => ({ exercise_id: id, tag_id })));
+    if (insErr) return { error: 'Nie udało się zaktualizować tagów.' };
   }
 
   revalidatePath('/exercises');
@@ -97,8 +111,18 @@ export async function updateExerciseAction(
 async function setArchived(id: unknown, value: string | null): Promise<ExerciseFormState> {
   if (typeof id !== 'string' || id.length === 0) return { error: 'Brak ćwiczenia.' };
   const supabase = await createClient();
-  const { error } = await supabase.from('exercises').update({ archived_at: value }).eq('id', id);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Musisz być zalogowany.' };
+  const { data: updated, error } = await supabase
+    .from('exercises')
+    .update({ archived_at: value })
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
   if (error) return { error: 'Operacja nie powiodła się.' };
+  if (!updated) return { error: 'Nie znaleziono ćwiczenia.' };
   revalidatePath('/exercises');
   return {};
 }

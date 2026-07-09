@@ -5,6 +5,7 @@ import {
   sectionInputSchema,
   planExerciseInputSchema,
   setInputSchema,
+  templateInputSchema,
 } from '@/lib/plan-builder/schemas';
 
 describe('weekInputSchema', () => {
@@ -87,5 +88,14 @@ describe('setInputSchema', () => {
   });
   it('rejects a non-positive set_number', () => {
     expect(setInputSchema.safeParse({ ...base, set_number: 0 }).success).toBe(false);
+  });
+});
+
+describe('templateInputSchema', () => {
+  it('trims and accepts a valid name', () => {
+    expect(templateInputSchema.parse({ name: ' Push A ' }).name).toBe('Push A');
+  });
+  it('rejects an empty name', () => {
+    expect(templateInputSchema.safeParse({ name: '   ' }).success).toBe(false);
   });
 });

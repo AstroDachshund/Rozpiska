@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Barlow_Condensed, Manrope, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
+import { QueryProvider } from '@/components/query-provider';
 
 const barlowCondensed = Barlow_Condensed({
   subsets: ['latin', 'latin-ext'],
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="pl"
       className={`${barlowCondensed.variable} ${manrope.variable} ${ibmPlexMono.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }

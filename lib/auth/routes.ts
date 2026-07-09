@@ -2,7 +2,7 @@
 import { resolveHomePath, type Role } from '@/lib/auth/paths';
 
 /** Prefiksy tras chronionych per rola. Bieżące trasy MVP; rozszerzać per milestone. */
-const TRAINER_PREFIXES = ['/dashboard', '/exercises'];
+const TRAINER_PREFIXES = ['/dashboard', '/exercises', '/templates'];
 const CLIENT_PREFIXES = ['/today'];
 
 const matches = (pathname: string, prefixes: string[]) =>

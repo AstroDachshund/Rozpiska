@@ -1,7 +1,7 @@
 'use client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import { positionBetween, rebalance } from '@/lib/domain/position';
+import { positionBetween } from '@/lib/domain/position';
 import { planTreeQueryKey } from '@/lib/plan-builder/queries';
 import type { PlanContext, PlanWeek } from '@/lib/plan-builder/types';
 import type { WeekInput } from '@/lib/plan-builder/schemas';
@@ -16,19 +16,12 @@ export function useCreateWeek(context: PlanContext) {
       const key = planTreeQueryKey(context);
       const tree = queryClient.getQueryData<PlanWeek[]>(key) ?? [];
       const lastPosition = tree.length > 0 ? tree[tree.length - 1]!.position : null;
-      let position = positionBetween(lastPosition, null);
-
-      if (position === null) {
-        // Degeneracja odstępu — rebalansujemy całe rodzeństwo przed wstawieniem.
-        const fresh = rebalance(tree.length);
-        await Promise.all(
-          tree.map((week, i) =>
-            supabase.from('plan_weeks').update({ position: fresh[i] }).eq('id', week.id)
-          )
-        );
-        // Odstęp po świeżym rebalansie jest zawsze STEP, więc to wywołanie nigdy nie zwraca null.
-        position = positionBetween(fresh.length > 0 ? fresh[fresh.length - 1]! : null, null)!;
-      }
+      // Dołożenie na końcu (before, null) NIGDY nie degeneruje się — positionBetween
+      // zwraca `before + STEP` zanim w ogóle sprawdzi próg degeneracji (zob.
+      // lib/domain/position.ts). Rebalans rodzeństwa ma sens dopiero przy wstawianiu
+      // MIĘDZY dwoma sąsiadami (reorder/dnd, przyszłe S4.2/S4.4) — tam
+      // positionBetween(before, after) faktycznie może zwrócić null.
+      const position = positionBetween(lastPosition, null)!;
 
       // Kolumny właścicielskie (trainer_id/client_id) wypełnia trigger BEFORE INSERT
       // z rodzica (plan_templates/assigned_plans) — nigdy nie wysyłamy ich z klienta.

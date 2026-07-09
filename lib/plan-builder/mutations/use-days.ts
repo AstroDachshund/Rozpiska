@@ -1,7 +1,7 @@
 'use client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import { positionBetween, rebalance } from '@/lib/domain/position';
+import { positionBetween } from '@/lib/domain/position';
 import { planTreeQueryKey, getWeekDays } from '@/lib/plan-builder/queries';
 import type { PlanContext, PlanWeek } from '@/lib/plan-builder/types';
 import type { DayInput } from '@/lib/plan-builder/schemas';
@@ -17,17 +17,12 @@ export function useCreateDay(context: PlanContext) {
       const tree = queryClient.getQueryData<PlanWeek[]>(key) ?? [];
       const siblings = getWeekDays(tree, input.week_id);
       const lastPosition = siblings.length > 0 ? siblings[siblings.length - 1]!.position : null;
-      let position = positionBetween(lastPosition, null);
-
-      if (position === null) {
-        const fresh = rebalance(siblings.length);
-        await Promise.all(
-          siblings.map((day, i) =>
-            supabase.from('plan_days').update({ position: fresh[i] }).eq('id', day.id)
-          )
-        );
-        position = positionBetween(fresh.length > 0 ? fresh[fresh.length - 1]! : null, null)!;
-      }
+      // Dołożenie na końcu (before, null) NIGDY nie degeneruje się — positionBetween
+      // zwraca `before + STEP` zanim w ogóle sprawdzi próg degeneracji (zob.
+      // lib/domain/position.ts). Rebalans rodzeństwa ma sens dopiero przy wstawianiu
+      // MIĘDZY dwoma sąsiadami (reorder/dnd, przyszłe S4.2/S4.4) — tam
+      // positionBetween(before, after) faktycznie może zwrócić null.
+      const position = positionBetween(lastPosition, null)!;
 
       // week_id wystarcza — trigger dziedziczy trainer_id/client_id/template_id/
       // assigned_plan_id z plan_weeks (private.plan_structure_inherit_ownership).

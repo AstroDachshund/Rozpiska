@@ -51,3 +51,8 @@ export const setInputSchema = z
     path: ['reps_max'],
   });
 export type SetInput = z.infer<typeof setInputSchema>;
+
+export const templateInputSchema = z.object({
+  name: z.string().trim().min(1, 'Podaj nazwę szablonu.').max(120, 'Nazwa jest za długa.'),
+});
+export type TemplateInput = z.infer<typeof templateInputSchema>;

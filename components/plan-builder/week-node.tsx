@@ -9,7 +9,15 @@ import { useUpdateWeek, useDeleteWeek } from '@/lib/plan-builder/mutations/use-w
 import { useCreateDay } from '@/lib/plan-builder/mutations/use-days';
 import type { PlanContext, PlanWeek } from '@/lib/plan-builder/types';
 
-export function WeekNode({ context, week }: { context: PlanContext; week: PlanWeek }) {
+export function WeekNode({
+  context,
+  week,
+  onAddExercise,
+}: {
+  context: PlanContext;
+  week: PlanWeek;
+  onAddExercise: (sectionId: string) => void;
+}) {
   const updateWeek = useUpdateWeek(context);
   const deleteWeek = useDeleteWeek(context);
   const createDay = useCreateDay(context);
@@ -71,6 +79,7 @@ export function WeekNode({ context, week }: { context: PlanContext; week: PlanWe
             context={context}
             day={day}
             autoFocusName={day.id === justCreatedDayId}
+            onAddExercise={onAddExercise}
           />
         ))}
       </ul>

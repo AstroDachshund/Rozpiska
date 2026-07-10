@@ -8,7 +8,7 @@ import { useCreateWeek } from '@/lib/plan-builder/mutations/use-weeks';
 import type { PlanContext } from '@/lib/plan-builder/types';
 
 export function PlanBuilderTree({ context }: { context: PlanContext }) {
-  const { data: weeks, isPending } = usePlanTree(context);
+  const { data: weeks, isPending, isError } = usePlanTree(context);
   const createWeek = useCreateWeek(context);
 
   function handleAddWeek() {
@@ -22,6 +22,10 @@ export function PlanBuilderTree({ context }: { context: PlanContext }) {
 
   if (isPending) {
     return <p className="mt-8 text-sm text-muted-foreground">Wczytywanie planu…</p>;
+  }
+
+  if (isError) {
+    return <p className="mt-8 text-sm text-destructive">Nie udało się wczytać planu.</p>;
   }
 
   return (

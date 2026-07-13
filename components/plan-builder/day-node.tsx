@@ -16,10 +16,12 @@ export function DayNode({
   context,
   day,
   autoFocusName,
+  onAddExercise,
 }: {
   context: PlanContext;
   day: PlanDay;
   autoFocusName: boolean;
+  onAddExercise: (sectionId: string) => void;
 }) {
   const updateDay = useUpdateDay(context);
   const deleteDay = useDeleteDay(context);
@@ -68,7 +70,12 @@ export function DayNode({
 
       <ul className="mt-3 space-y-2">
         {sortedSections.map((section) => (
-          <SectionRow key={section.id} context={context} section={section} />
+          <SectionRow
+            key={section.id}
+            context={context}
+            section={section}
+            onAddExercise={onAddExercise}
+          />
         ))}
       </ul>
 

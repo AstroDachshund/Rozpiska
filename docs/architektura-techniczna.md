@@ -224,6 +224,15 @@ Kreator planów trenera: tylko online. Konflikt "trener edytował dzień, który
     - `PlanBuilderTree` przyjmuje wyłącznie `context: PlanContext` (nie osobną parę `rootId`/`context` jak literalnie sugeruje tabela w design-system.md §5.5) — bez dublowania ID; funkcjonalnie identyczne.
     - **`/templates` i `/templates/[id]` zarejestrowane w `TRAINER_PREFIXES` w tym samym zadaniu, które je wprowadza** — celowe powtórzenie dyscypliny z lekcji §9.16 (`/exercises` pominięte w S3.1, naprawione dopiero w final review); tym razem test routingu i rejestracja w jednym commicie od razu.
 
+20. **Wstawianie ćwiczeń + inline edycja serii nad PlanBuilderTree** (rozstrzygnięte w S4.3, M4). `components/plan-builder/{set-row,exercise-row}.tsx` (nowe) + modyfikacja `section-row/day-node/week-node/plan-builder-tree.tsx` — zero nowego kodu mutującego, cały UI woła gotowe hooki `use-exercises.ts`/`use-sets.ts` z S4.1. Kluczowe decyzje:
+    - **Rewizja inwariantu z S4.2**: `PlanBuilderTree` przyjmuje teraz `context` + `exercises`/`archivedExercises`/`tags` (nie tylko `context`) — wyszukiwarka ćwiczeń potrzebuje tych danych, a zgodnie z §9.16 odczyty banku ćwiczeń to Server Component, nie klient. `app/(trainer)/templates/[id]/page.tsx` woła te same trzy zapytania co `(trainer)/layout.tsx` (pewna duplikacja per-nawigacja, spójna z §9.17).
+    - **Jedna współdzielona `<ExerciseCommand>`** montowana w korzeniu drzewa, nie jedna na sekcję — stan `pickerSectionId` w `PlanBuilderTree`, w dół schodzi wyłącznie callback `onAddExercise`, nigdy dane.
+    - **Przycisk „Dodaj ćwiczenie" celowo BEZ guardu `disabled={pending}`** — w odróżnieniu od „Dodaj serię"/„Dodaj dzień"/„Dodaj tydzień". Otwiera tylko picker; picker zamyka się (`setPickerSectionId(null)`) PRZED wywołaniem mutacji tworzącej, więc nie ma okna na wyścig podwójnego kliknięcia z tego konkretnego przycisku.
+    - **Wszystkie 4 pola serii (powtórzenia/ciężar/RPE/przerwa) zawsze widoczne** (styl arkusza), commit na blur; puste pole → `null`; błędny, niepusty input (np. „10-8", „abc") cofa się do ostatniej poprawnej wartości bez wywołania mutacji i bez tosta.
+    - **„Dodaj serię" kopiuje wartości ostatniej serii** ćwiczenia (najczęstszy przypadek: identyczne serie); pierwsza seria startuje pusta. `set_number = sets.length + 1` — ten sam wzorzec „nieodporny na luki, ale natychmiast edytowalny" co placeholder dnia w S4.2.
+    - **Parser zakresu powtórzeń** (`lib/domain/reps-range.ts`) akceptuje `"8"` (stałe) i `"8-10"`/`"8–10"` (zakres); formatuje zawsze en dashem.
+    - `exercise_name` pozostaje niezmiennym snapshotem — brak UI zmiany nazwy na wierszu ćwiczenia; `set_number` jest tylko wyświetlany, nie edytowalny (renumeracja to terytorium dnd, S4.4).
+
 ## 10. Workflow z Claude Code
 
 - **CLAUDE.md w repo** z: opisem domeny (słowniczek: szablon vs instancja, plan_set vs set_log), konwencjami (RLS-first, uuid v7, position float), komendami (test, migracje, gen types).
